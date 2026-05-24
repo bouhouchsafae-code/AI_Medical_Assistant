@@ -16,7 +16,7 @@ sys.path.append(BASE_DIR)
 # 📦 Imports
 # =========================
 
-from backend.model import MedicalResNetModel
+from model import MedicalResNetModel
 
 from backend.ai.gradcam import GradCAM
 
