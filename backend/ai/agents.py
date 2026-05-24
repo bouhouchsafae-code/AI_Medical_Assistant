@@ -16,9 +16,9 @@ sys.path.append(BASE_DIR)
 # 📦 Imports
 # =========================
 
-from model import MedicalResNetModel
+from backend.model import MedicalResNetModel
 
-from ai.gradcam import GradCAM
+from backend.ai.gradcam import GradCAM
 
 import torch
 
@@ -34,10 +34,7 @@ class MedicalClassifierAgent:
         # 📁 Model path
         # =========================
 
-        model_path = os.path.join(
-            BASE_DIR,
-            "best_resnet_model.pth"
-        )
+        model_path = "models/best_resnet_model.pth"
 
         # =========================
         # ⚙️ Device
