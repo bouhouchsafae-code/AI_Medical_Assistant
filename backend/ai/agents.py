@@ -18,7 +18,7 @@ sys.path.append(BASE_DIR)
 
 from model import MedicalResNetModel
 
-from backend.ai.gradcam import GradCAM
+from ai.gradcam import GradCAM
 
 import torch
 
