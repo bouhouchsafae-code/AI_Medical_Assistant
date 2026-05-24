@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+sqlalchemy
+python-multipart
+passlib[bcrypt]
+python-jose
+pydantic
+pillow
+numpy
+opencv-python-headless
+torch
+torchvision
+cloudinary
+requests
+reportlab
