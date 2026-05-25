@@ -24,7 +24,7 @@ BASE_DIR = os.path.abspath(
 
 sys.path.append(BASE_DIR)
 
-from ai.pdf_generator import (
+from backend.ai.pdf_generator import (
     generate_pdf
 )
 sys.path.append(
@@ -42,8 +42,11 @@ from fastapi import (
     File,
     Depends
 )
-
+from fastapi import Depends
 from sqlalchemy.orm import Session
+from database.models import Analysis
+from auth.auth_dependencies import get_current_user
+from database.dependencies import get_db
 
 from PIL import Image
 
@@ -91,7 +94,7 @@ from services.cloudinary_service import (
 # 🤖 AI
 # =========================
 
-from ai.agents import (
+from backend.ai.agents import (
     MedicalOrchestrator
 )
 
@@ -885,11 +888,9 @@ def my_analyses(
 
             "confidence": item.confidence,
 
-            "report": item.report,
-
             "image_url": item.image_path,
 
-            "pdf_url": item.pdf_path,
+            #"pdf_url": item.pdf_path,
 
             "created_at": str(
 
@@ -906,3 +907,4 @@ def my_analyses(
         "analyses": formatted
 
     }
+

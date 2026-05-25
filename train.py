@@ -1,470 +1,319 @@
-from rsna_dataset import (
-    train_loader,
-    test_loader
-)
-
-from model import PneumoniaModel
-
 import torch
 
 import torch.nn as nn
 
 import torch.optim as optim
 
-from tqdm import tqdm
+from torchvision import datasets
+from torchvision import transforms
+from torchvision import models
 
-import json
+from torch.utils.data import DataLoader
 
-from sklearn.metrics import (
+# =========================
+# 🔥 TRANSFORMS
+# =========================
 
-    precision_score,
+train_transform = transforms.Compose([
 
-    recall_score,
+    transforms.Resize((224, 224)),
 
-    f1_score
+    transforms.RandomHorizontalFlip(),
+
+    transforms.RandomRotation(10),
+
+    transforms.ColorJitter(
+
+        brightness=0.1,
+
+        contrast=0.1
+
+    ),
+
+    transforms.ToTensor(),
+
+    transforms.Normalize(
+
+        mean=[0.485, 0.456, 0.406],
+
+        std=[0.229, 0.224, 0.225]
+
+    )
+
+])
+
+test_transform = transforms.Compose([
+
+    transforms.Resize((224, 224)),
+
+    transforms.ToTensor(),
+
+    transforms.Normalize(
+
+        mean=[0.485, 0.456, 0.406],
+
+        std=[0.229, 0.224, 0.225]
+
+    )
+
+])
+
+# =========================
+# 📂 DATASETS
+# =========================
+
+train_dataset = datasets.ImageFolder(
+
+    "chest_xray/train",
+
+    transform=train_transform
+
+)
+
+test_dataset = datasets.ImageFolder(
+
+    "chest_xray/test",
+
+    transform=test_transform
 
 )
 
 # =========================
-# 🔥 FOCAL LOSS
+# 🚀 DATALOADERS
 # =========================
 
-class FocalLoss(nn.Module):
+train_loader = DataLoader(
 
-    def __init__(
+    train_dataset,
 
-        self,
+    batch_size=32,
 
-        alpha=1,
+    shuffle=True
 
-        gamma=2
+)
 
-    ):
+test_loader = DataLoader(
 
-        super(FocalLoss, self).__init__()
+    test_dataset,
 
-        self.alpha = alpha
+    batch_size=32,
 
-        self.gamma = gamma
+    shuffle=False
 
-        self.bce = nn.BCEWithLogitsLoss(
-
-            reduction="none"
-
-        )
-
-    def forward(
-
-        self,
-
-        inputs,
-
-        targets
-
-    ):
-
-        bce_loss = self.bce(
-
-            inputs,
-
-            targets
-
-        )
-
-        probs = torch.sigmoid(inputs)
-
-        pt = torch.where(
-
-            targets == 1,
-
-            probs,
-
-            1 - probs
-
-        )
-
-        focal_loss = (
-
-            self.alpha
-            *
-            (1 - pt) ** self.gamma
-            *
-            bce_loss
-
-        )
-
-        return focal_loss.mean()
+)
 
 # =========================
-# 🚀 MAIN
+# ⚙️ DEVICE
 # =========================
 
-def main():
+device = torch.device(
+
+    "cuda"
+
+    if torch.cuda.is_available()
+
+    else "cpu"
+
+)
+
+print("Using device:", device)
+
+# =========================
+# 🧠 RESNET18
+# =========================
+
+model = models.resnet18(
+
+    pretrained=True
+
+)
+
+# =========================
+# 🔥 FINAL LAYER
+# =========================
+
+num_features = model.fc.in_features
+
+model.fc = nn.Linear(
+
+    num_features,
+
+    1
+
+)
+
+model = model.to(device)
+
+# =========================
+# 🔥 LOSS
+# =========================
+
+criterion = nn.BCEWithLogitsLoss()
+
+# =========================
+# ⚙️ OPTIMIZER
+# =========================
+
+optimizer = optim.Adam(
+
+    model.parameters(),
+
+    lr=0.0001
+
+)
+
+# =========================
+# 🔥 TRAINING
+# =========================
+
+epochs = 10
+
+best_accuracy = 0
+
+for epoch in range(epochs):
+
+    model.train()
+
+    running_loss = 0
+
+    correct = 0
+
+    total = 0
+
+    for images, labels in train_loader:
+
+        images = images.to(device)
+
+        labels = (
+
+            labels.float()
+
+            .unsqueeze(1)
+
+            .to(device)
+
+        )
+
+        outputs = model(images)
+
+        loss = criterion(
+
+            outputs,
+
+            labels
+
+        )
+
+        optimizer.zero_grad()
+
+        loss.backward()
+
+        optimizer.step()
+
+        running_loss += loss.item()
+
+        preds = (
+
+            torch.sigmoid(outputs)
+
+            > 0.5
+
+        ).float()
+
+        correct += (
+
+            preds == labels
+
+        ).sum().item()
+
+        total += labels.size(0)
+
+    train_acc = correct / total
 
     print(
 
-        "Starting RSNA Pneumonia Training..."
+        f"Epoch [{epoch+1}/{epochs}] "
+
+        f"Loss: {running_loss:.4f} "
+
+        f"Accuracy: {train_acc:.4f}"
 
     )
 
     # =========================
-    # ⚙️ DEVICE
+    # 🧪 EVALUATION
     # =========================
 
-    device = torch.device(
+    model.eval()
 
-        "cuda"
+    correct = 0
 
-        if torch.cuda.is_available()
+    total = 0
 
-        else "cpu"
+    with torch.no_grad():
 
-    )
-
-    print("Using device:", device)
-
-    # =========================
-    # 🧠 MODEL
-    # =========================
-
-    model = PneumoniaModel().to(device)
-
-    # =========================
-    # 🔥 LOSS
-    # =========================
-
-    criterion = FocalLoss(
-
-        alpha=1,
-
-        gamma=2
-
-    )
-
-    # =========================
-    # ⚙️ OPTIMIZER
-    # =========================
-
-    optimizer = optim.Adam(
-
-        model.parameters(),
-
-        lr=0.00003,
-
-        weight_decay=1e-4
-
-    )
-
-    # =========================
-    # 📉 SCHEDULER
-    # =========================
-
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(
-
-        optimizer,
-
-        T_max=50
-
-    )
-
-    # =========================
-    # 🔧 CONFIG
-    # =========================
-
-    epochs = 50
-
-    best_recall = 0
-
-    patience = 15
-
-    counter = 0
-
-    threshold = 0.25
-
-    # =========================
-    # 📊 TRACKING
-    # =========================
-
-    train_losses = []
-
-    val_accuracies = []
-
-    # =========================
-    # 🔥 TRAIN LOOP
-    # =========================
-
-    for epoch in range(epochs):
-
-        model.train()
-
-        total_loss = 0
-
-        loop = tqdm(
-
-            train_loader,
-
-            desc=f"Epoch {epoch+1}/{epochs}"
-
-        )
-
-        # =========================
-        # 🚀 TRAINING
-        # =========================
-
-        for images, labels in loop:
+        for images, labels in test_loader:
 
             images = images.to(device)
 
-            labels = labels.float().unsqueeze(1).to(device)
+            labels = (
+
+                labels.float()
+
+                .unsqueeze(1)
+
+                .to(device)
+
+            )
 
             outputs = model(images)
 
-            loss = criterion(
+            preds = (
 
-                outputs,
+                torch.sigmoid(outputs)
 
-                labels
+                > 0.5
 
-            )
+            ).float()
 
-            optimizer.zero_grad()
+            correct += (
 
-            loss.backward()
+                preds == labels
 
-            optimizer.step()
+            ).sum().item()
 
-            total_loss += loss.item()
+            total += labels.size(0)
 
-            loop.set_postfix(
+    accuracy = correct / total
 
-                loss=f"{loss.item():.4f}"
+    print(
 
-            )
+        f"Test Accuracy: {accuracy:.4f}"
 
-        print(
+    )
 
-            f"\nEpoch {epoch+1} "
+    # =========================
+    # 💾 SAVE BEST MODEL
+    # =========================
 
-            f"completed | "
+    if accuracy > best_accuracy:
 
-            f"Loss: {total_loss:.4f}"
+        best_accuracy = accuracy
 
-        )
+        torch.save(
 
-        # =========================
-        # 🧪 VALIDATION
-        # =========================
+            model.state_dict(),
 
-        model.eval()
-
-        correct = 0
-
-        total = 0
-
-        all_preds = []
-
-        all_labels = []
-
-        with torch.no_grad():
-
-            for images, labels in test_loader:
-
-                images = images.to(device)
-
-                labels = labels.float().unsqueeze(1).to(device)
-
-                outputs = model(images)
-
-                preds = (
-
-                    torch.sigmoid(outputs)
-
-                    > threshold
-
-                ).float()
-
-                correct += (
-
-                    preds == labels
-
-                ).sum().item()
-
-                total += labels.numel()
-
-                all_preds.extend(
-
-                    preds.cpu()
-
-                    .numpy()
-
-                    .reshape(-1)
-
-                )
-
-                all_labels.extend(
-
-                    labels.cpu()
-
-                    .numpy()
-
-                    .reshape(-1)
-
-                )
-
-        # =========================
-        # 📊 METRICS
-        # =========================
-
-        accuracy = correct / total
-
-        precision = precision_score(
-
-            all_labels,
-
-            all_preds,
-
-            zero_division=0
-
-        )
-
-        recall = recall_score(
-
-            all_labels,
-
-            all_preds,
-
-            zero_division=0
-
-        )
-
-        f1 = f1_score(
-
-            all_labels,
-
-            all_preds,
-
-            zero_division=0
+            "best_resnet_model.pth"
 
         )
 
         print(
 
-            f"""
-
-==============================
-     VALIDATION METRICS
-==============================
-
-Accuracy : {accuracy:.4f}
-
-Precision: {precision:.4f}
-
-Recall   : {recall:.4f}
-
-F1 Score : {f1:.4f}
-
-==============================
-
-"""
+            "🔥 Best model saved!"
         )
 
-        # =========================
-        # 📉 SCHEDULER
-        # =========================
+print(
 
-        scheduler.step()
-        # =========================
-        # 📊 SAVE HISTORY
-        # =========================
-
-        train_losses.append(total_loss)
-
-        val_accuracies.append(accuracy)
-
-        # =========================
-        # 💾 SAVE BEST MODEL
-        # =========================
-
-        if recall > best_recall:
-
-            best_recall = recall
-
-            torch.save(
-
-                model.state_dict(),
-
-                "best_pneumonia_model.pth"
-
-            )
-
-            print(
-
-                "🔥 Best model saved!"
-
-            )
-
-            counter = 0
-
-        else:
-
-            counter += 1
-
-        # =========================
-        # ⛔ EARLY STOPPING
-        # =========================
-
-        #if counter >= patience:
-
-         #   print(
-
-          #      "⛔ Early stopping triggered"
-
-           # )
-
-            #break
-
-    # =========================
-    # 🏁 FINAL RESULT
-    # =========================
-
-    print(
-
-        f"\n🔥 BEST RECALL: "
-
-        f"{best_recall:.4f}"
-
-    )
-
-    # =========================
-    # 💾 SAVE HISTORY
-    # =========================
-
-    with open(
-
-        "training_history.json",
-
-        "w"
-
-    ) as f:
-
-        json.dump({
-
-            "loss": train_losses,
-
-            "accuracy": val_accuracies
-
-        }, f)
-
-    print(
-
-        "Training history saved ✅"
-
-    )
-
-# =========================
-# 🚀 START
-# =========================
-
-if __name__ == "__main__":
-
-    main()
+    f"\nBest Accuracy: {best_accuracy:.4f}"
+)

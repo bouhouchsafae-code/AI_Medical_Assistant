@@ -9,12 +9,18 @@ oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="login"
 )
 
+from fastapi import Depends
+
 # =========================
 # 👤 Current user
 # =========================
 
 def get_current_user(
-    token: str
+
+    token: str = Depends(
+        oauth2_scheme
+    )
+
 ):
 
     print("\nTOKEN:", token)

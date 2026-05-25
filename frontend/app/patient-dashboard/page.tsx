@@ -13,7 +13,7 @@ export default function PatientDashboard() {
 
   const router = useRouter();
 
-  const [analyses, setAnalyses] = useState<any[]>([]);
+  const [patientData, setPatientData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   // =========================
@@ -80,10 +80,13 @@ export default function PatientDashboard() {
         }
 
       );
-
-      setAnalyses(
-        response.data.analyses
+      console.log(response.data);
+      console.log(
+        "ANALYSES:",
+        response.data
       );
+
+      setPatientData(response.data);
 
     }
 
@@ -322,6 +325,7 @@ export default function PatientDashboard() {
     router.push("/");
 
   };
+  const analyses = patientData?.analyses || [];
 
   return (
 
@@ -385,50 +389,50 @@ export default function PatientDashboard() {
       {/* ANALYSES */}
 
       {/* ========================= */}
-{/* PATIENT ANALYSES */}
-{/* ========================= */}
+    {/* PATIENT ANALYSES */}
+    {/* ========================= */}
 
-{loading ? (
+    {loading ? (
 
-  <div className="text-gray-400 text-lg">
+      <div className="text-gray-400 text-lg">
 
-    Loading analyses...
+        Loading analyses...
 
-  </div>
+      </div>
 
-) : analyses.length === 0 ? (
+    ) : analyses.length === 0 ? (
 
-  <div className="bg-[#111111] border border-gray-800 rounded-3xl p-10 text-center text-gray-400">
+      <div className="bg-[#111111] border border-gray-800 rounded-3xl p-10 text-center text-gray-400">
 
-    No analyses linked to this patient
+        No analyses linked to this patient
 
-  </div>
+      </div>
 
-) : (
+    ) : (
 
-  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
 
-    {analyses.map((analysis: any) => (
+        {analyses.map((analysis: any) => (
 
-      <div
+          <div
 
-        key={analysis.id}
+            key={analysis.id}
 
-        className="bg-[#111111] border border-gray-800 rounded-3xl overflow-hidden shadow-xl"
+            className="bg-[#111111] border border-gray-800 rounded-3xl overflow-hidden shadow-xl"
 
-      >
+          >
 
-        {/* IMAGE */}
+            {/* IMAGE */}
 
-        <img
+            <img
 
-          src={analysis.image_url}
+              src={analysis.image_url}
 
-          alt="analysis"
+              alt="analysis"
 
-          className="w-full h-64 object-cover"
+              className="w-full h-64 object-cover"
 
-        />
+            />
 
         {/* CONTENT */}
 
