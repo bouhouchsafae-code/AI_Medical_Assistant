@@ -166,7 +166,7 @@ optimizer = optim.Adam(
 # 🔥 TRAINING
 # =========================
 
-epochs = 10
+epochs = 30
 
 best_accuracy = 0
 
